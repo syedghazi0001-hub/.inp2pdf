@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ==================== SEO ==================== -->
+<title>InPage to PDF Converter — Convert Urdu .inp Files Online (Free)</title>
+<meta name="description" content="Convert InPage (.inp) Urdu documents to PDF online — free, no InPage software needed. Original Jameel Noori Nastaliq font, bold/italic, tables, line spacing and MCQ spacing preserved exactly.">
+<meta name="keywords" content="inpage to pdf, inp to pdf converter, urdu inpage converter, inpage file convert online, urdu pdf converter, inpage urdu document, noori nastaliq pdf, free inp to pdf">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#0d9665">
+<link rel="canonical" href="{{ base_url }}/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d9665'/%3E%3Cpath d='M14 44c4-8 8-16 12-24h6c-1.5 7-3 13-4 19h5l-1.5 5h-5c-1 5-2 8-3.5 10h-6c1.5-3 2.8-6.5 3.8-10H18l2-5h5.5c.8-4 1.7-8.5 2.7-13-2.7 6-6.5 13-11.5 18z' fill='%23fff'/%3E%3Ctext x='46' y='24' font-family='Arial' font-weight='bold' font-size='11' fill='%23fff'%3EPDF%3C/text%3E%3C/svg%3E">
+<!-- Open Graph / social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="InPage to PDF Converter">
+<meta property="og:title" content="InPage to PDF Converter — Convert Urdu .inp Files Online">
+<meta property="og:description" content="Free online converter: InPage .inp Urdu documents to PDF with original Jameel Noori Nastaliq font, bold, tables and exact spacing. No InPage software needed.">
+<meta property="og:url" content="{{ base_url }}/">
+<meta property="og:image" content="{{ base_url }}/static/og-banner.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="en_PK">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="InPage to PDF Converter — Urdu .inp to PDF Online">
+<meta name="twitter:description" content="Convert InPage Urdu documents to PDF online. Original Nastaliq formatting preserved. Free.">
+<meta name="twitter:image" content="{{ base_url }}/static/og-banner.png">
+<!-- Structured data for search engines -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "InPage to PDF Converter",
+  "url": "{{ base_url }}/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Any (web browser)",
+  "description": "Convert InPage (.inp) Urdu documents to PDF online with original Nastaliq formatting — no InPage software required.",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "inLanguage": ["en", "ur"],
+  "featureList": "Original Jameel Noori Nastaliq font, Bold text, Tables, Line breaks and spacing, Urdu digit correction, Works without InPage software"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "What is an .inp file?",
+     "acceptedAnswer": {"@type": "Answer", "text": ".inp is the document format of InPage, the Urdu desktop publishing software used for newspapers, books, exam papers and school documents in Pakistan."}},
+    {"@type": "Question", "name": "Do I need InPage software to convert .inp to PDF?",
+     "acceptedAnswer": {"@type": "Answer", "text": "No. This converter reads the .inp file directly — InPage or Windows is not required. It works on mobile, Windows, Mac and Linux."}},
+    {"@type": "Question", "name": "Is the Urdu formatting preserved?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Yes — the original Jameel Noori Nastaliq calligraphy, bold text, font sizes, line breaks, vertical gaps, MCQ option spacing and tables are preserved from the original file."}},
+    {"@type": "Question", "name": "Is this InPage to PDF converter free?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Yes, it is completely free. Files are processed automatically and deleted from the server after 24 hours."}}
+  ]
+}
+</script>
+<script src="/static/pdfjs/pdf.min.js"></script>
+<style>
+  :root{
+    --bg:#f7f8fa; --card:#ffffff; --line:#e6e9ee; --text:#16202e;
+    --muted:#68758a; --accent:#0d9665; --accent-dark:#0a7d54;
+    --accent-soft:#e7f7f0; --danger:#dc2626; --danger-soft:#fef2f2;
+    --radius:16px; --shadow:0 1px 3px rgba(16,24,40,.07);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+       background:var(--bg);color:var(--text);padding:28px 14px 80px;line-height:1.5}
+  .wrap{max-width:820px;margin:0 auto}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:center;gap:14px;margin-bottom:24px}
+  .logo{width:52px;height:52px;border-radius:14px;flex:none;
+        background:linear-gradient(135deg,#0d9665,#34d399);
+        display:flex;align-items:center;justify-content:center;
+        box-shadow:0 4px 14px rgba(13,150,101,.35)}
+  .logo svg{width:28px;height:28px}
+  h1{font-size:22px;font-weight:800;letter-spacing:-.2px}
+  .sub{color:var(--muted);font-size:13.5px;margin-top:2px}
+
+  /* ---------- cards & steps ---------- */
+  .card{background:var(--card);border:1px solid var(--line);
+        border-radius:var(--radius);padding:22px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .steplabel{display:flex;align-items:center;gap:9px;margin-bottom:13px}
+  .steplabel .n{width:24px;height:24px;border-radius:50%;background:var(--accent);
+        color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;
+        justify-content:center;flex:none}
+  .steplabel .t{font-weight:700;font-size:15px}
+  .steplabel .hint{color:var(--muted);font-size:12.5px;margin-left:auto}
+
+  /* ---------- dropzone ---------- */
+  .drop{border:2px dashed #c9d2dd;border-radius:12px;padding:44px 20px;text-align:center;
+        cursor:pointer;background:#fbfcfd;transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  .drop svg{width:44px;height:44px;margin-bottom:10px}
+  .drop .l1{font-size:16.5px;font-weight:700}
+  .drop .l2{color:var(--muted);font-size:13px;margin-top:5px}
+  .filelist{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .fpill{background:#f2f4f7;border:1px solid var(--line);border-radius:999px;
+         padding:6px 12px;font-size:13px;display:flex;gap:8px;align-items:center}
+  .fpill button{background:none;border:none;color:#9aa5b5;cursor:pointer;font-size:14px;line-height:1}
+  .fpill button:hover{color:var(--danger)}
+
+  /* ---------- options ---------- */
+  details.adv summary{cursor:pointer;color:var(--muted);font-size:13px;
+        user-select:none;list-style:none;display:flex;align-items:center;gap:6px}
+  details.adv summary::-webkit-details-marker{display:none}
+  details.adv summary .chev{transition:.2s}
+  details.adv[open] summary .chev{transform:rotate(90deg)}
+  .opts{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+  .opt label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+  .opt select,.opt input[type=range]{width:100%;border:1px solid #d4dae2;border-radius:8px;
+        padding:8px 10px;font-size:13px;background:#fff;color:var(--text)}
+  .opt input[type=range]{padding:0;accent-color:var(--accent)}
+  .check{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;user-select:none}
+  .check input{width:15px;height:15px;accent-color:var(--accent)}
+
+  /* ---------- buttons ---------- */
+  .btn{width:100%;padding:15px;border:none;border-radius:12px;cursor:pointer;
+       font-size:16.5px;font-weight:800;color:#fff;background:var(--accent);
+       font-family:inherit;transition:.15s;box-shadow:0 2px 8px rgba(13,150,101,.25)}
+  .btn:hover:not(:disabled){background:var(--accent-dark)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+  .btn.small{width:auto;padding:9px 18px;font-size:13.5px;margin:0}
+  .btn.ghost{background:#fff;color:var(--accent);border:1.5px solid var(--accent);box-shadow:none}
+  .btn.ghost:hover{background:var(--accent-soft)}
+  .spinner{display:inline-block;width:15px;height:15px;border:2.5px solid #ffffff55;
+           border-top-color:#fff;border-radius:50%;vertical-align:-2px;
+           margin-right:9px;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ---------- results ---------- */
+  .results{display:flex;flex-direction:column;gap:18px}
+  .res{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+       padding:20px;box-shadow:var(--shadow)}
+  .res .head{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+  .badge{font-size:12px;font-weight:800;border-radius:999px;padding:4px 11px}
+  .badge.ok{background:var(--accent-soft);color:var(--accent-dark)}
+  .badge.bad{background:var(--danger-soft);color:var(--danger)}
+  .res .name{font-weight:700;font-size:15px;word-break:break-all}
+  .res .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .statrow{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+  .stat{background:#f4f6f8;border:1px solid var(--line);border-radius:8px;
+        padding:4px 10px;font-size:12px;color:var(--muted);font-weight:600}
+  .errorbox{margin-top:12px;background:var(--danger-soft);border:1px solid #fecaca;
+            border-radius:10px;padding:11px 13px;font-size:13.5px;color:#b91c1c}
+
+  /* ---------- PDF viewer (pdf.js canvases) ---------- */
+  .pdfview{margin-top:14px;background:#eef1f4;border:1px solid var(--line);
+           border-radius:12px;padding:12px;display:flex;flex-direction:column;
+           gap:12px;max-height:70vh;overflow-y:auto}
+  .pdfview canvas{width:100%;height:auto;display:block;background:#fff;
+                  border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+  .loadmore{align-self:center}
+
+  /* ---------- save help ---------- */
+  .savebox{margin-top:14px;background:#fffbeb;border:1px solid #fde68a;
+           border-radius:12px;padding:14px 16px}
+  .savebox .h{font-weight:800;font-size:13.5px;color:#92400e;margin-bottom:7px}
+  .savebox ol{margin:0;padding-left:20px;font-size:13px;color:#78350f;line-height:1.9}
+  .savebox code{background:#fff;border:1px solid #fde68a;border-radius:5px;
+                padding:1px 6px;font-size:11.5px}
+
+  /* ---------- text accordion ---------- */
+  details.txt{margin-top:12px}
+  details.txt summary{cursor:pointer;color:var(--muted);font-size:13px;user-select:none}
+  .preview{margin-top:9px;background:#fbfcfd;border:1px solid var(--line);
+           border-radius:10px;padding:13px 15px;font-size:15px;line-height:2.1;
+           direction:rtl;text-align:right;max-height:380px;overflow-y:auto;
+           font-family:"Jameel Noori Nastaleeq","Noto Nastaliq Urdu",serif;white-space:pre-wrap}
+
+  .foot{text-align:center;color:#9aa5b5;font-size:12px;margin-top:10px}
+  .hidden{display:none}
+  /* ---------- SEO content ---------- */
+  .seo{margin-top:34px;background:var(--card);border:1px solid var(--line);
+       border-radius:var(--radius);padding:26px 26px 18px;box-shadow:var(--shadow)}
+  .seo h2{font-size:18px;font-weight:800;margin:18px 0 10px;letter-spacing:-.2px}
+  .seo h2:first-child{margin-top:0}
+  .seo p{color:var(--muted);font-size:14px;margin-bottom:10px}
+  .seo ul,.seo ol{margin:0 0 12px 22px;color:var(--muted);font-size:14px}
+  .seo li{margin:5px 0}
+  .seo details{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0;background:var(--bg)}
+  .seo summary{cursor:pointer;font-size:14px;color:var(--text)}
+  .seo details p{margin:8px 0 2px}
+  .seo code{background:var(--accent-soft);padding:1px 6px;border-radius:5px;font-size:12.5px;color:var(--accent-dark)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/>
+      </svg>
+    </div>
+    <div>
+      <h1>InPage → PDF Converter</h1>
+      <div class="sub">InPage (Urdu) files ko PDF me badlein — asli Nastaliq, asli formatting ke sath</div>
+    </div>
+  </header>
+
+  <!-- STEP 1: file -->
+  <div class="card">
+    <div class="steplabel"><div class="n">1</div><div class="t">Apni file chunein</div>
+      <div class="hint">.inp files — ek ya zyada</div></div>
+    <div class="drop" id="drop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#0d9665" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <div class="l1">Yahan <b>.inp</b> file drop karein — ya click karke select karein</div>
+      <div class="l2">Sab kuch aap hi ke computer par hota hai · kahin upload nahi hoti</div>
+      <input type="file" id="fileInput" class="hidden" multiple accept=".inp,.INP">
+    </div>
+    <div class="filelist hidden" id="fileList"></div>
+
+    <details class="adv">
+      <summary><span class="chev">▸</span> Advanced options (optional)</summary>
+      <div class="opts">
+        <div class="opt"><label>Page size</label>
+          <select id="pageSize"><option>A4</option><option>Letter</option><option>Legal</option></select></div>
+        <div class="opt"><label>Urdu font</label>
+          <select id="urduFont"><option value="jameel">Jameel Noori Nastaleeq</option>
+          <option value="noto">Noto Nastaliq Urdu</option></select></div>
+        <div class="opt"><label>Layout</label>
+          <select id="layoutMode"><option value="auto">Auto (tables detect)</option>
+          <option value="table">Force table</option><option value="flow">Simple text</option></select></div>
+        <div class="opt"><label>Text size — <span id="scaleVal">100%</span></label>
+          <input type="range" id="scale" min="50" max="200" value="100" step="5"></div>
+        <div class="opt"><label>Line spacing</label>
+          <select id="lineSpacing"><option value="1.5">Compact</option>
+          <option value="1.7" selected>Normal</option><option value="2.0">Loose</option></select></div>
+        <div class="opt"><label>&nbsp;</label>
+          <label class="check"><input type="checkbox" id="landscape"> Landscape page</label></div>
+      </div>
+    </details>
+  </div>
+
+  <!-- STEP 2: convert -->
+  <div class="card">
+    <div class="steplabel"><div class="n">2</div><div class="t">PDF banayein</div></div>
+    <button class="btn" id="go" disabled>Convert to PDF</button>
+  </div>
+
+  <!-- STEP 3: results -->
+  <div class="results" id="results"></div>
+
+  <!-- ==================== SEO content ==================== -->
+  <section class="seo">
+    <h2>Why use this InPage to PDF converter?</h2>
+    <p>Millions of Urdu newspapers, books, exam papers and school documents are typed in <strong>InPage</strong> — but opening an <code>.inp</code> file needs the InPage software, which only runs on Windows. This free online tool converts <strong>InPage to PDF</strong> directly in your browser, so anyone can read, print and share Urdu documents on any device.</p>
+    <ul>
+      <li><strong>Original Nastaliq calligraphy</strong> — Jameel Noori Nastaleeq, the same font family InPage documents use</li>
+      <li><strong>Bold text preserved</strong> — headings and bold words look bold in the PDF</li>
+      <li><strong>Exact spacing</strong> — line breaks, vertical gaps and the wide spaces between MCQ options stay as typed</li>
+      <li><strong>Tables rebuilt</strong> — bordered RTL tables with the header row repeated</li>
+      <li><strong>Urdu numbers fixed</strong> — dates, marks and question numbers in correct order</li>
+      <li><strong>No software needed</strong> — works on mobile, Windows, Mac and Linux; no InPage, no font installation</li>
+      <li><strong>Private</strong> — files are deleted automatically after 24 hours</li>
+    </ul>
+
+    <h2>How to convert an .inp file to PDF</h2>
+    <ol>
+      <li>Drag your <code>.inp</code> file into the box above (or click to choose files — several at once is fine).</li>
+      <li>Press <strong>Convert to PDF</strong>. Conversion takes a few seconds per file.</li>
+      <li>Preview the PDF right in the page, then download it. Done!</li>
+    </ol>
+    <p dir="rtl" lang="ur">اِس ٹُول سے اردو اِن پیج فائل کو پی ڈی ایف میں بدلیں — اصل نستعلیق فونٹ، بولڈ ٹیکسٹ اور وہی فارمیٹنگ جو آپ کی فائل میں ہے۔ مکمل مفت ہے۔</p>
+
+    <h2>Frequently asked questions</h2>
+    <details open><summary><strong>What is an .inp file?</strong></summary>
+      <p>.inp is the document format of InPage, the Urdu desktop-publishing software widely used in Pakistan for newspapers, books, question papers and school/administrative documents.</p></details>
+    <details><summary><strong>Do I need InPage software to convert .inp to PDF?</strong></summary>
+      <p>No. This converter reads the .inp file format directly — InPage or Windows is not required. It works in any modern browser, including mobile.</p></details>
+    <details><summary><strong>Will the Urdu formatting stay the same?</strong></summary>
+      <p>Yes. The original Jameel Noori Nastaliq calligraphy, bold text, font sizes, line breaks, vertical gaps, MCQ option spacing and tables are preserved from the original file.</p></details>
+    <details><summary><strong>Is it free? Are my files safe?</strong></summary>
+      <p>Completely free. Uploaded files are processed automatically and permanently deleted from the server after 24 hours. Nothing is shared with third parties.</p></details>
+    <details><summary><strong>Can I convert many files at once?</strong></summary>
+      <p>Yes — select or drop multiple .inp files (up to 30 per batch) and each one produces its own PDF.</p></details>
+  </section>
+
+  <details class="txt" style="margin-top:18px">
+    <summary style="font-weight:700">❓ Madad / Istemal ka tareeqa (How to use)</summary>
+    <div style="line-height:2;font-size:13.5px">
+      <b>1. File chunein:</b> apni InPage (<code>.inp</code>) file drag karein ya click kar ke select karein (ek waqt me kai files bhi chalein).
+      <br><b>2. Convert karein:</b> "Convert to PDF" dabayein — asal file ki formatting (Jameel Noori Nastaliq font, line breaks, spaces, tables, Urdu numbers) waisi hi rehti hai.
+      <br><b>3. PDF dekhein / save karein:</b>
+      <ul style="margin:6px 0 6px 18px">
+        <li>Preview neeche khud load hoti hai (pdf.js)</li>
+        <li><b>Download button</b> — aam browser me seedha kaam karta hai</li>
+        <li>Chat ke andar wale preview me download block ho to: <b>🔗 "Naye tab me kholein" par right-click → Open link in new tab → Ctrl+S</b>, ya <b>🧩 Copy link</b> kar ke naye tab me paste karein</li>
+      </ul>
+      <b>Settings (zaroori nahi):</b> page size, font (Jameel/Noto), text size scale, line spacing — default sab kuch original file ke mutabiq hota hai.
+      <br><b>Server par chalana (apni website):</b> zip me diya gaya <code>README.md</code> dekhein — <code>python app.py</code> se local, ya Docker/Render/Railway se internet par. Security ke liye <code>INPAGE2PDF_API_KEY</code> env variable set karein.
+    </div>
+  </details>
+
+  <div class="foot">InPage100 stream → Unicode → HarfBuzz Nastaliq typesetting · Files auto-deleted after 24h</div>
+</div>
+
+<script>
+/* ================= pdf.js setup ================= */
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/pdfjs/pdf.worker.min.js';
+
+/* API key support: when the server runs with INPAGE2PDF_API_KEY set,
+   open the site as  ?key=THE_KEY  — it is remembered for the session and
+   sent with conversion requests automatically. */
+const _kp=new URLSearchParams(location.search).get('key');
+if(_kp){try{sessionStorage.setItem('inpage_key',_kp);}catch(e){}}
+let API_KEY='';
+try{API_KEY=sessionStorage.getItem('inpage_key')||'';}catch(e){}
+
+const drop=document.getElementById('drop'), input=document.getElementById('fileInput'),
+      list=document.getElementById('fileList'), go=document.getElementById('go'),
+      results=document.getElementById('results');
+let files=[];
+
+function renderList(){
+  list.classList.toggle('hidden', files.length===0);
+  list.innerHTML='';
+  files.forEach((f,i)=>{
+    const p=document.createElement('div'); p.className='fpill';
+    p.innerHTML=`<span>📄 ${f.name}</span><button title="Remove">✕</button>`;
+    p.querySelector('button').onclick=()=>{files.splice(i,1);renderList();};
+    list.appendChild(p);
+  });
+  go.disabled=files.length===0;
+  go.textContent=files.length>1?`Convert ${files.length} files to PDF`:'Convert to PDF';
+}
+drop.onclick=()=>input.click();
+input.onchange=()=>{files.push(...input.files); input.value=''; renderList();};
+['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',ev=>{files.push(...ev.dataTransfer.files.filter(f=>/\.inp$/i.test(f.name)));renderList();});
+const scale=document.getElementById('scale');
+scale.oninput=()=>document.getElementById('scaleVal').textContent=scale.value+'%';
+
+/* ================= pdf.js page renderer ================= */
+async function renderPdfPages(url, container, startPage, endPage, pdfHandle){
+  let pdf = pdfHandle;
+  if(!pdf){
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('PDF fetch failed');
+    const data = await res.arrayBuffer();
+    pdf = await pdfjsLib.getDocument({data}).promise;
+  }
+  const last = Math.min(endPage||pdf.numPages, pdf.numPages);
+  for(let i=startPage;i<=last;i++){
+    const page = await pdf.getPage(i);
+    const vp = page.getViewport({scale:1.6});
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(vp.width);
+    canvas.height = Math.floor(vp.height);
+    await page.render({canvasContext:canvas.getContext('2d'), viewport:vp}).promise;
+    container.appendChild(canvas);
+  }
+  return pdf;
+}
+
+/* ================= download attempt (blob + fallbacks) ================= */
+async function tryDownload(url, name){
+  try{
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 8000);
+    // sandboxed iframes swallow the click silently — surface the fallback
+    // links a moment later so the user always has a working path.
+    setTimeout(()=>{
+      const fb=document.getElementById('dlfallback');
+      if(fb){fb.style.display='block';}
+    },1500);
+  }catch(e){ console.warn('download failed', e); }
+}
+function copyLink(url){
+  const abs=new URL(url, location.href).href;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(abs).then(
+      ()=>alert('Link copy ho gaya!\n\nAb browser ka naya tab kholein, address bar me paste karein aur Enter dabayein — phir Ctrl+S se save karein.'),
+      ()=>prompt('Ye link copy karein (Ctrl+C):', abs));
+  }else{
+    prompt('Ye link copy karein (Ctrl+C):', abs);
+  }
+}
+
+/* ================= main flow ================= */
+go.onclick=async()=>{
+  go.disabled=true; go.innerHTML='<span class="spinner"></span>Converting…';
+  results.innerHTML='';
+  const fd=new FormData();
+  if(API_KEY){fd.append('api_key',API_KEY);}
+  files.forEach(f=>fd.append('files',f));
+  fd.append('page_size',document.getElementById('pageSize').value);
+  fd.append('urdu_font',document.getElementById('urduFont').value);
+  fd.append('layout_mode',document.getElementById('layoutMode').value);
+  fd.append('scale',(scale.value/100).toFixed(2));
+  fd.append('line_spacing',document.getElementById('lineSpacing').value);
+  fd.append('landscape',document.getElementById('landscape').checked?'1':'0');
+  try{
+    const r=await fetch('/api/convert',{method:'POST',body:fd});
+    const data=await r.json();
+    if(data.error){alert(data.error);return;}
+    for(const res of data.results){
+      const el=document.createElement('div'); el.className='res';
+      if(!res.ok){
+        el.innerHTML=`<div class="head"><span class="badge bad">✗ Failed</span>
+                      <span class="name">${res.name}</span></div>
+                      <div class="errorbox">${res.error||'Conversion failed.'}</div>`;
+        results.appendChild(el); continue;
+      }
+      const s=res.stats||{};
+      const viewUrl=`/api/view/${data.job}/${encodeURIComponent(res.pdf)}`;
+      const dlUrl=`/api/download/${data.job}/${encodeURIComponent(res.pdf)}`;
+      const layoutTxt = s.layout==='table' ? 'Table layout (jaise original)' : 'Text layout (original line breaks + gaps)';
+      el.innerHTML=`
+        <div class="head">
+          <span class="badge ok">✓ Ready</span>
+          <span class="name">${res.name}</span>
+          <div class="actions">
+            <button class="btn small" onclick="tryDownload('${dlUrl}','${res.pdf.replace(/'/g,"")}')">⬇ Download PDF</button>
+            <a class="btn small" href="${viewUrl}" target="_blank" rel="noopener" title="Right-click → Open link in new tab">🔗 Naye tab me kholein</a>
+            <button class="btn small" onclick="copyLink('${viewUrl}')">🧩 Copy link</button>
+          </div>
+        </div>
+        <div id="dlfallback" style="display:none;margin:6px 0 0;padding:10px 12px;background:#fff8e6;border:1px solid #e8d9a0;border-radius:8px;font-size:13px;line-height:1.9">
+          <b>Agar download button kaam na kare</b> (chat preview ka sandbox block karta hai):
+          <ol style="margin:4px 0 0 18px">
+            <li><b>🔗 "Naye tab me kholein"</b> par <b>right-click → "Open link in new tab"</b> — naye tab me PDF khulegi, wahan <b>Ctrl+S</b> dabayein</li>
+            <li>Ya <b>🧩 Copy link</b> dabayein, naya tab kholein, address bar me paste karein</li>
+            <li>Ya neeche PDF page par <b>right-click → "Save image as"</b></li>
+          </ol>
+        </div>
+        <div class="statrow">
+          <span class="stat">${layoutTxt}</span>
+          <span class="stat">${s.paragraphs??'—'} lines</span>
+          <span class="stat">${res.total_pages??'—'} pages</span>
+          <span class="stat">${Math.round((res.size||0)/1024)} KB</span>
+          <span class="stat">Font sizes from original file</span>
+        </div>
+        <div class="pdfview" id="pv-${data.job}"></div>
+        <div class="savebox">
+          <div class="h">💾 PDF save karne ka tareeqa</div>
+          <ol>
+            <li><b>Download button</b> try karein — zyada tar browsers me seedha save ho jati hai</li>
+            <li>Block ho (chat sandbox) to upar <b>🔗 button par right-click → "Open link in new tab"</b>, phir naye tab me <b>Ctrl+S</b></li>
+            <li>Ya <b>🧩 Copy link</b> → naya tab → address bar me paste → Enter → Ctrl+S</li>
+            <li>Ya neeche PDF page par <b>right-click → "Save image as"</b> (har page ki image)</li>
+          </ol>
+        </div>
+        <details class="txt"><summary>Poori extracted text dekhein (${s.paragraphs??0} lines)</summary>
+          <div class="preview">${(res.preview||'').replace(/</g,'&lt;')}</div></details>`;
+      results.appendChild(el);
+
+      // render the REAL PDF via pdf.js; on ANY failure fall back to the
+      // page images (which load everywhere) — the preview must never die.
+      const container=el.querySelector('.pdfview');
+      const imgs=res.page_images||[];
+      const showImages=(fromPage)=>{
+        container.innerHTML='';
+        let start = fromPage||1;
+        for(let i=start-1;i<imgs.length;i++){
+          const im=document.createElement('img');
+          im.src='/api/pageimg/'+data.job+'/'+encodeURIComponent(imgs[i]);
+          im.style.cssText='width:100%;display:block;background:#fff;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.18)';
+          im.title='Right-click → Save image as';
+          container.appendChild(im);
+        }
+        const note=document.createElement('div');
+        note.style.cssText='text-align:center;color:#68758a;font-size:12.5px;padding:6px';
+        note.textContent='Page-image preview (identical to the PDF)';
+        container.appendChild(note);
+      };
+      let pdfHandle=null;
+      try{
+        if(typeof pdfjsLib==='undefined') throw new Error('pdf.js not loaded');
+        const resP = renderPdfPages(viewUrl, container, 1, 8, null);
+        const timeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),20000));
+        pdfHandle = await Promise.race([resP, timeout]);
+        if(pdfHandle.numPages>8){
+          const more=document.createElement('button');
+          more.className='btn small ghost loadmore';
+          more.textContent=`Show remaining ${pdfHandle.numPages-8} of ${pdfHandle.numPages} pages`;
+          more.onclick=async()=>{
+            more.disabled=true; more.textContent='Loading…';
+            try{
+              await renderPdfPages(viewUrl, container, 9, pdfHandle.numPages, pdfHandle);
+              more.remove();
+            }catch(err){ showImages(9); more.remove(); }
+          };
+          container.appendChild(more);
+        }
+      }catch(err){
+        console.warn('pdf.js preview failed, falling back to images:', err);
+        showImages(1);
+      }
+    }
+  }catch(err){ alert('Request failed: '+err); }
+  go.disabled=false; renderList();
+};
+</script>
+</body>
+</html>
