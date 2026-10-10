@@ -1,0 +1,15 @@
+# ================= Render Blueprint (backend) =================
+# Render.com par "New +" -> "Blueprint" select karein aur ye repo
+# point karein — backend khud ban jaye ga. (Ya manually bhi kar
+# sakte hain: README-DEPLOY.md ke Step 2 dekhein.)
+# ============================================================
+
+services:
+  - type: web
+    name: inpage2pdf-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT --timeout 300 wsgi:app
+    healthCheckPath: /api/health

@@ -1,0 +1,20 @@
+# ================= Netlify configuration =================
+# Ye file Netlify ko batati hai ke:
+#   - website (static files) "site/" folder me hain
+#   - /api/* requests aapke Render backend par proxy hoti hain
+#
+# !!! ZAROORI: Deploy se PEHLE neeche YOUR-BACKEND-ON-RENDER replace
+# karein apne asli Render URL se (Step 2 ke baad milega), maslan:
+#   https://inpage2pdf-1a2b.onrender.com
+# =========================================================
+
+[build]
+  publish = "site"
+
+# API proxy: browser /api/... calls karta hai -> Netlify unko backend
+# par forward karta hai (same-origin, CORS ki zaroorat nahi)
+[[redirects]]
+  from = "/api/*"
+  to = "https://YOUR-BACKEND-ON-RENDER.onrender.com/api/:splat"
+  status = 200
+  force = true
