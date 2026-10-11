@@ -26,7 +26,8 @@ from dataclasses import dataclass, field
 from . import engine, textfix
 import re as _re
 
-from .inp_reader import extract_document, extract_font_names, is_inp
+from .inp_reader import (extract_document, extract_document_ex,
+                        extract_font_names, is_inp, _page_setup)
 from .pdf_builder import (Document, Paragraph, RenderOptions, detect_table,
                           render_pdf, render_table_pdf)
 
@@ -142,14 +143,62 @@ def convert_file(inp_path: str, pdf_path: str | None = None,
                        "engineering software (Abaqus/EPANET); this tool "
                        "only reads InPage files."))
 
-        blocks, styles = extract_document(inp_path)
+        blocks, styles, grid = extract_document_ex(inp_path)
 
         paragraphs: list[Paragraph] = []
         unmapped: list = []
         fixes: list = []
         preview: list[str] = []
+        grid_table = None
+        grid_cells = 0
 
         for bi, block in enumerate(blocks):
+            # A detected grid table (InPage Table tool) replaces this
+            # block's flow entirely: bordered RTL grid, one cell per
+            # linked paragraph, and NO phantom blank lines for the
+            # empty cells.
+            if grid is not None and bi == 0:
+                trows, tsizes, tbolds = [], [], []
+                for r in range(grid["rows"]):
+                    trow, srow, brow = [], [], []
+                    for c in range(grid["cols"]):
+                        cell = grid["cells"][r][c]
+                        if cell is None:
+                            trow.append(""); srow.append(None)
+                            brow.append(False)
+                            continue
+                        raw, st = cell
+                        uni, report = engine.convert(raw,
+                                                     latin_digits=latin_digits)
+                        uni = _fix_digit_order(uni)
+                        if report:
+                            unmapped.extend(report)
+                        if apply_fixes and uni:
+                            uni, changed = textfix.fix_spelling(uni)
+                            for ch in changed:
+                                ch["block"], ch["para"] = bi, r
+                                fixes.append(ch)
+                        sz = (st or {}).get("size")
+                        grid_cells += 1
+                        if uni:
+                            preview.append(uni)
+                        trow.append(uni)
+                        srow.append(sz)
+                        brow.append(bool((st or {}).get("bold")))
+                    trows.append(trow)
+                    tsizes.append(srow)
+                    tbolds.append(brow)
+                # cells without an explicit size use InPage's document
+                # default (Noori Nastaliq 13pt in a new document) — NOT
+                # the most common explicit size, which would silently
+                # resize the typist's default-sized text
+                dom = 13.0
+                grid_table = {"cols": grid["cols"], "header": None,
+                              "rows": trows, "title_end": len(paragraphs),
+                              "uniform": True, "body_size": dom,
+                              "cell_sizes": tsizes, "cell_bolds": tbolds,
+                              "geom": grid.get("geom")}
+                continue
             block_styles = styles[bi] if bi < len(styles) else []
             for pi, raw_para in enumerate(block.split("\n")):
                 uni, report = engine.convert(raw_para, latin_digits=latin_digits)
@@ -184,7 +233,8 @@ def convert_file(inp_path: str, pdf_path: str | None = None,
 
         doc = Document(title=title, paragraphs=paragraphs, stats={
             "blocks": len(blocks),
-            "paragraphs": len(paragraphs),
+            "paragraphs": len(paragraphs) + grid_cells,
+            "grid_table_cells": grid_cells,
             "characters": sum(len(p.text) for p in paragraphs),
             "with_style": sum(1 for p in paragraphs if p.size_pt),
             "fonts": extract_font_names(inp_path),
@@ -195,9 +245,33 @@ def convert_file(inp_path: str, pdf_path: str | None = None,
             pdf_path = os.path.splitext(inp_path)[0] + ".pdf"
         os.makedirs(os.path.dirname(os.path.abspath(pdf_path)), exist_ok=True)
         opts = opts or RenderOptions()
+        # ROUND 15d: give the renderer the file's own text-area width
+        # (page minus its stored margins) so stored lines that InPage
+        # itself fit never re-flow in our (narrower) tuned margin.
+        def _read_stream(path: str) -> bytes:
+            import olefile
+            ole = olefile.OleFileIO(path)
+            try:
+                return ole.openstream("InPage100").read()
+            finally:
+                ole.close()
+
+        try:
+            _ps = _page_setup(_read_stream(inp_path))
+            if _ps:
+                opts.file_usable_mm = (_ps["page_w_mm"]
+                                       - _ps["left_mm"] - _ps["right_mm"])
+        except Exception:
+            pass
 
         layout_used = "flow"
-        if opts.table_mode != "flow":
+        if grid_table is not None:
+            # paragraphs gathered so far render as the leading block,
+            # later blocks flow after the table
+            grid_table["post"] = paragraphs[grid_table["title_end"]:]
+            render_table_pdf(doc, grid_table, pdf_path, opts)
+            layout_used = "grid-table"
+        elif opts.table_mode != "flow":
             table = detect_table(paragraphs)
             if table and (opts.table_mode == "table" or len(table["rows"]) >= 4):
                 render_table_pdf(doc, table, pdf_path, opts)

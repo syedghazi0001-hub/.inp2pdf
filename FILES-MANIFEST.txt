@@ -1,0 +1,60 @@
+InPage to PDF — DEPLOY PACKAGE (Netlify + Render) — COMPLETE PACKAGE MANIFEST
+Generated: 2026-10-11
+UI: Round 10 ('final ui.html' design, teal/dark) | Backend: 15d (locked, final)
+
+Structure:
+  site/ -> Netlify static website (current UI, YOUR-SITE placeholder URL)
+  backend/ -> Render backend (full Flask project + engine + fonts)
+  netlify.toml, render.yaml, README-DEPLOY.md, dev/ -> configs + guide
+
+FILE LIST (every file in this package):
+------------------------------------------------------------
+       2,926  FILES-MANIFEST.txt
+       6,922  README-DEPLOY.md
+       2,754  README.md
+         735  netlify.toml
+         576  render.yaml
+         666  backend/Dockerfile
+      14,556  backend/README.md
+      60,670  backend/RESEARCH.md
+      20,213  backend/app.py
+       3,488  backend/cli.py
+         102  backend/requirements.txt
+         330  backend/wsgi.py
+      11,783  backend/converted/1g.pdf
+      99,536  backend/converted/URDU PAPEgggggR 8 2.pdf
+      13,695  backend/converted/diff.pdf
+      72,669  backend/converted/projectiion test.pdf
+      72,669  backend/converted/projection 7(a).pdf
+      53,753  backend/converted/projection 7.pdf
+      13,384  backend/converted/sab.pdf
+      12,043  backend/converted/table 1 NEW.pdf
+      15,881  backend/converted/table 1.pdf
+      12,546  backend/converted/table test.pdf
+     131,112  backend/converted/urdu paer class 10..pdf
+     128,991  backend/converted/urdu paper 7.pdf
+  10,962,580  backend/fonts/JameelNooriNastaleeq-Italic.ttf
+  10,784,980  backend/fonts/JameelNooriNastaleeq.ttf
+     531,728  backend/fonts/NotoNastaliqUrdu-Bold.ttf
+     530,796  backend/fonts/NotoNastaliqUrdu-Regular.ttf
+     690,304  backend/fonts/NotoNastaliqUrdu[wght].ttf
+           0  backend/inpage2pdf/__init__.py
+      13,259  backend/inpage2pdf/converter.py
+       6,166  backend/inpage2pdf/engine.py
+      33,239  backend/inpage2pdf/inp_reader.py
+       4,659  backend/inpage2pdf/mapping.py
+      40,589  backend/inpage2pdf/pdf_builder.py
+       2,540  backend/inpage2pdf/textfix.py
+      73,090  backend/static/og-banner.png
+     320,004  backend/static/pdfjs/pdf.min.js
+   1,087,212  backend/static/pdfjs/pdf.worker.min.js
+      38,314  backend/templates/index.html
+       4,127  dev/local_netlify_sim.py
+      38,388  site/index.html
+          90  site/robots.txt
+         220  site/sitemap.xml
+      73,090  site/static/og-banner.png
+     320,004  site/static/pdfjs/pdf.min.js
+   1,087,212  site/static/pdfjs/pdf.worker.min.js
+------------------------------------------------------------
+TOTAL: 47 files, 27,394,591 bytes (26.1 MB)

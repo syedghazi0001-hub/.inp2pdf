@@ -100,7 +100,11 @@ def _find_text_resume(data: bytes, pos: int) -> int:
 
 
 def _find_text_start(data: bytes) -> int:
-    for min_chars in (20, 8):
+    # Progressive thresholds: normal documents open with a long text run,
+    # but a grid-table story can be a handful of 3-4 pair cell texts (the
+    # user's real table files) — still require >=2 pairs so structure
+    # bytes are never mistaken for text.
+    for min_chars in (20, 8, 4, 2):
         i = _find_long_run(data, 0, min_chars)
         if i != -1:
             return i
@@ -129,6 +133,7 @@ def _parse_style_blob(blob: bytes) -> dict | None:
     size = None
     bold = False
     italic = False
+    cell = None                          # 0x7FE0 second id (table cell)
     flags: list[tuple[int, int]] = []
     i = 0
     n = len(blob)
@@ -142,6 +147,8 @@ def _parse_style_blob(blob: bytes) -> dict | None:
             i += 8
             flags.append((op, v1))
             flags.append((op, v2))
+            if op == 0x7fe0:
+                cell = v2
         elif op in _OP_U32:
             if i + 4 > n:
                 return None
@@ -176,7 +183,8 @@ def _parse_style_blob(blob: bytes) -> dict | None:
             italic = bool(val)
     if i != n:
         return None
-    return {"size": size, "bold": bold, "italic": italic, "flags": flags}
+    return {"size": size, "bold": bold, "italic": italic, "flags": flags,
+            "cell": cell}
 
 
 def _parse_style_runs(data: bytes, pos: int) -> list[tuple[int, dict | None]]:
@@ -203,9 +211,316 @@ def _parse_style_runs(data: bytes, pos: int) -> list[tuple[int, dict | None]]:
     return runs
 
 
-def extract_document(path: str, junk_limit: int = 16,
+def _table_counters(data: bytes) -> list[int]:
+    """Line-slot counters for InPage grid-table cells.
+
+    A grid table (InPage Table tool) stores, in the object-table region,
+    one paired record per cell: a 50-record ('32 00 00 00 e7 9a 00 00')
+    followed by a 0-record whose u32 at offset +32 of its class marker
+    holds the cell's line-slot counter. Pairs sit at a fixed 124-byte
+    stride. Verified on the user's grid-table file: 35 pairs, counters
+    574..715. No non-table file in the reference set contains this
+    pattern at all (0 occurrences), which is what makes it a safe
+    table discriminator."""
+    offs: list[int] = []
+    p = data.find(b"\x32\x00\x00\x00")     # id-50 object records
+    while p != -1:
+        offs.append(p)
+        p = data.find(b"\x32\x00\x00\x00", p + 1)
+    off_set = set(offs)
+    best: list[int] = []
+    for start in offs:
+        chain = [start]
+        while chain[-1] + 124 in off_set:
+            chain.append(chain[-1] + 124)
+        # the next object in the file may also start with an id-50
+        # record at +124: trim the chain at the first counter that does
+        # not strictly increase (cell line numbers always increase)
+        cs = [struct.unpack_from("<I", data, o + 44)[0] for o in chain]
+        end = 1
+        while end < len(cs) and cs[end] > cs[end - 1]:
+            end += 1
+        chain = chain[:end]
+        if len(chain) < 6 or len(chain) <= len(best):
+            continue
+        classes = [struct.unpack_from("<I", data, o + 4)[0] for o in chain]
+        if classes.count(39655) < len(chain) * 0.6:
+            continue        # not the cell-counter structure
+        best = chain
+    return [struct.unpack_from("<I", data, o + 44)[0] for o in best]
+
+
+def _linked_cells(runs: list[tuple[int, dict | None]]) -> list[tuple[int, dict | None]]:
+    """Extract the cell-link run sequence from parsed style runs.
+
+    In a grid-table story every paragraph is its own cell and the run's
+    style blob carries 0x7FE0 (chainId, cellId). Returns the maximal
+    run of style runs whose cell ids are strictly consecutive, or []
+    when fewer than 6 (layout text-box chains link whole multi-
+    paragraph boxes, not one run per paragraph)."""
+    best: list[tuple[int, dict | None]] = []
+    cur: list[tuple[int, dict | None]] = []
+    last_id = None
+    for nbytes, st in runs:
+        cid = (st or {}).get("cell")
+        # step +1 = next cell; step 0 = same cell (a second run for the
+        # same cell — its CR byte, or a second paragraph line)
+        if cid is not None and last_id is not None \
+                and cid in (last_id, last_id + 1):
+            cur.append((nbytes, st))
+        elif cid is not None:
+            if len(cur) > len(best):
+                best = cur
+            cur = [(nbytes, st)]
+        else:
+            if len(cur) > len(best):
+                best = cur
+            cur = []
+        last_id = cid
+    if len(cur) > len(best):
+        best = cur
+    return best if len(best) >= 6 else []
+
+
+def _grid_rows_cols(counters: list[int]) -> tuple[int, int] | None:
+    """Group cell line-counters into a rectangular rows x cols grid.
+
+    Within a row the counter advances by a small modal step (4 on the
+    verified file); across a row boundary it jumps one higher (5). One
+    larger anomaly (a +6 inside the last row of the verified file) is
+    tolerated: a candidate row length L is accepted when EVERY cross-
+    row delta exceeds the modal step and >= 80% of within-row deltas
+    do not. Returns (rows, cols) or None."""
+    n = len(counters)
+    if n < 6:
+        return None
+    deltas = [b - a for a, b in zip(counters, counters[1:])]
+    from collections import Counter
+    modal = Counter(deltas).most_common(1)[0][0]
+    if modal <= 0:
+        return None
+    best = None
+    for L in range(2, n // 2 + 1):
+        if n % L:
+            continue
+        bset = {k * L - 1 for k in range(1, n // L)}
+        bounds = [deltas[k] for k in sorted(bset)]
+        withins = [d for i, d in enumerate(deltas) if i not in bset]
+        if not bounds or not all(d > modal for d in bounds):
+            continue
+        if sum(1 for d in withins if d <= modal) / len(withins) < 0.8:
+            continue
+        ratio = sum(1 for d in withins if d <= modal) / len(withins)
+        if best is None or ratio > best[0]:
+            best = (ratio, n // L, L)
+    if best is None:
+        return (1, n) if n <= 64 else None    # no boundaries: single row
+    return best[1], best[2]
+
+
+# InPage internal length unit: 1/2000 pt (same unit as the 0x7F00 font
+# sizes). Verified on the grid-table file: page 210x297mm is stored as
+# 1190550 x 1683779 and the table width 184.60mm as 1046552.
+_UNIT_TO_MM = 25.4 / 72 / 2000
+
+
+def _page_setup(data: bytes) -> dict | None:
+    """Page size and margins from the header property list.
+
+    The header carries [propId u8][0x01][value u32] records; prop 6 is
+    the page width (~1190550 units for A4), 7 the height, and 8-11 the
+    left/right/top/bottom margins. All values are in 1/2000 pt. Returns
+    {'page_w_mm', 'page_h_mm', 'left_mm', 'right_mm', 'top_mm',
+    'bottom_mm'} or None when the list is not found / implausible."""
+    n = len(data)
+    for off in range(0, min(n, 0x3000) - 6):
+        if (data[off] == 6 and data[off + 1] == 0x01
+                and 1000000 < struct.unpack_from("<I", data, off + 2)[0]
+                < 1400000):
+            # walk the whole property list around this record
+            props: dict[int, int] = {}
+            p = off
+            while p - 6 >= 0 and data[p - 1] == 0x01 and data[p - 6] < 40:
+                props[data[p - 6]] = struct.unpack_from("<I", data, p - 4)[0]
+                p -= 6
+            p = off
+            while p + 6 <= n and data[p + 1] == 0x01 and data[p] < 40:
+                props[data[p]] = struct.unpack_from("<I", data, p + 2)[0]
+                p += 6
+            try:
+                pw = props[6] * _UNIT_TO_MM
+                ph = props[7] * _UNIT_TO_MM
+                l, r, t, b = (props[k] * _UNIT_TO_MM for k in (8, 9, 10, 11))
+            except KeyError:
+                return None
+            if not (100 <= pw <= 420 and 100 <= ph <= 600
+                    and all(0 <= m < 60 for m in (l, r, t, b))
+                    and pw - l - r > 50):
+                return None
+            return {"page_w_mm": pw, "page_h_mm": ph, "left_mm": l,
+                    "right_mm": r, "top_mm": t, "bottom_mm": b}
+    return None
+
+
+def _table_width_mm(data: bytes) -> float | None:
+    """Total width of the grid-table object, in mm.
+
+    The table object is the first 0x2E-class record whose A field
+    (u32 at sig+28) is page-sized; per-cell records carry only the
+    small default column width (142650 units = 25.16mm). Returns None
+    when no such record exists."""
+    sig = b"\x01\x00\x00\x00\xe7\x9a\x00\x00\x01\x00\x00\x00\x2e"
+    pos = 0
+    while True:
+        i = data.find(sig, pos)
+        if i == -1:
+            return None
+        a = struct.unpack_from("<I", data, i + 28)[0]
+        if 700000 <= a <= 1400000:          # ~123..247mm — a real table
+            return a * _UNIT_TO_MM
+        pos = i + 1
+
+
+def _table_cols(data: bytes) -> int | None:
+    """Column count of the grid table, straight from the table object.
+
+    The table object record (the 0x2E-class record with a page-sized A
+    field) carries the owning chain id (0x6B in every file so far)
+    followed by the column count as a u16 at sig+82. Verified on three
+    grid files: 7 / 5 / 7 columns — matching each table exactly where
+    the line-counter deltas alone cannot (one real file's counters step
+    +2 uniformly with no row-boundary signal at all). Non-table files
+    can also carry such a record (text-box chains), so this value is
+    only used together with the per-cell counter invariant."""
+    sig = b"\x01\x00\x00\x00\xe7\x9a\x00\x00\x01\x00\x00\x00\x2e"
+    pos = 0
+    while True:
+        i = data.find(sig, pos)
+        if i == -1:
+            return None
+        a = struct.unpack_from("<I", data, i + 28)[0]
+        if 700000 <= a <= 1400000 and i + 84 <= len(data):
+            cols = struct.unpack_from("<H", data, i + 82)[0]
+            if 2 <= cols <= 20:
+                return cols
+        pos = i + 1
+
+
+def _detect_grid_table(data, runs, blocks, counters) -> dict | None:
+    """Detect an InPage grid table (Table tool) in the first story.
+
+    All evidence must hold — anything less and the caller renders the
+    legacy flow, never a wrong guess:
+      1. >= 6 style runs whose 0x7FE0 cell ids are strictly consecutive
+         (one run per paragraph = one cell),
+      2. cell line-counter records in the object table, one per cell,
+         grouping into a rectangular rows x cols grid,
+      3. the story's non-empty paragraphs match the linked text runs
+         one-to-one in counted bytes (the cell texts, in order).
+    Returns {'rows', 'cols', 'cells'} with cells[r][c] = (text, style)
+    or None. Column 0 is the first cell in reading order — the
+    RIGHTMOST column of an RTL table."""
+    cells_runs = _linked_cells(runs)
+    if not cells_runs or not blocks:
+        return None
+    # distinct cell ids in file order — must be strictly consecutive
+    ids: list[int] = []
+    for _nb, st in cells_runs:
+        cid = (st or {}).get("cell")
+        if not ids or ids[-1] != cid:
+            ids.append(cid)
+    if not ids or ids != list(range(ids[0], ids[0] + len(ids))):
+        return None
+    # INVARIANT: a grid table has exactly one line-counter record per
+    # cell, so the counter chain and the linked cell ids must match 1:1.
+    # (A text-box document can also carry consecutive 0x7FE0 links and a
+    # table-like object record, but its counters never match its links —
+    # verified on the projection file: 96 counters vs 128 box ids.)
+    n = len(ids)
+    if not counters or len(counters) != n:
+        return None
+    # Grid shape: the table object's own column count is authoritative
+    # (one real file's line-counters carry NO row-boundary signal);
+    # the counter-delta grouping is only a fallback.
+    cols = _table_cols(data)
+    if cols is None or n % cols:
+        shape = _grid_rows_cols(counters)
+        if shape is None:
+            return None
+        rows, cols = shape
+        if rows * cols != n:
+            return None
+    else:
+        rows = n // cols
+    id_index = {cid: k for k, cid in enumerate(ids)}
+    # run byte spans
+    cum: list[tuple[int, int, dict | None]] = []
+    s = 0
+    for nb, st in cells_runs:
+        cum.append((s, s + nb, st))
+        s += nb
+    total = s
+    # A paragraph's CR byte (its last counted byte) decides its cell:
+    # InPage may split one cell's text and CR across two runs of the
+    # SAME cell (verified on both grid-table files).
+    cell_lines: dict[int, list[str]] = {}
+    cell_style: dict[int, dict] = {}
+    pos = 0
+    for ln in blocks[0].split("\n"):
+        end = pos + len(ln)          # CR byte position
+        if end >= total:
+            break                    # past the linked story
+        st = None                 # run holding the CR byte -> the cell
+        st0 = None                # run holding the first text byte -> size
+        for a, z, sst in cum:
+            if st0 is None and a <= pos < z:
+                st0 = sst
+            if a <= end < z:
+                st = sst
+                break
+        cid = (st or {}).get("cell")
+        k = id_index.get(cid)
+        if k is None:
+            return None              # paragraph outside the cell chain
+        if ln.strip():
+            cell_lines.setdefault(k, []).append(ln)
+        # cell style: prefer a run that actually carries the size
+        for sst in (cell_style.get(k), st0, st):
+            if sst is not None and sst.get("size") is not None:
+                cell_style[k] = sst
+                break
+        if k not in cell_style:
+            cell_style[k] = st0 if st0 is not None else st
+        pos = end + 1
+    if not cell_lines:
+        return None
+    cells = [[None] * cols for _ in range(rows)]
+    for k, lines in cell_lines.items():
+        r, c = divmod(k, cols)
+        cells[r][c] = ("\n".join(lines), cell_style.get(k))
+    out = {"rows": rows, "cols": cols, "cells": cells}
+    # geometry: the grid must fill the text area exactly (margin to
+    # margin) and start at the top margin, exactly like InPage drew it
+    setup = _page_setup(data)
+    if setup:
+        tw = _table_width_mm(data)
+        text_w = setup["page_w_mm"] - setup["left_mm"] - setup["right_mm"]
+        if tw and abs(tw - text_w) < 3.0:       # table == text area
+            out["geom"] = {"x0_mm": setup["left_mm"],
+                           "y0_mm": setup["top_mm"],
+                           "width_mm": min(tw, text_w)}
+        elif tw:                                 # table narrower than area
+            out["geom"] = {"x0_mm": setup["left_mm"],
+                           "y0_mm": setup["top_mm"],
+                           "width_mm": tw}
+    return out
+
+
+def extract_document_ex(path: str, junk_limit: int = 16,
                      min_block_chars: int = 10):
-    """Extract text plus per-paragraph character styling.
+    """Extract text, per-paragraph character styling, and grid tables.
+
+    Returns (blocks, styles, grid_table):
 
     Returns (blocks, styles):
       blocks — list of intermediate-form text blocks, exactly as
@@ -273,6 +588,17 @@ def extract_document(path: str, junk_limit: int = 16,
             text_end = i
             junk = 0
         elif b == 0x09:
+            # A tab at the very start of a paragraph whose next three
+            # bytes are zero is the paragraph's LENGTH PREFIX (small
+            # paragraphs: 0x09 = 8 text bytes + CR), not a typed tab —
+            # verified on the user's real grid-table file where three
+            # cells gained phantom tabs this way.
+            at_start = (not buf) or buf[-1] == "\n"
+            if at_start and data[i + 1:i + 4] == b"\x00\x00\x00":
+                i += 1
+                cur_bytes += 1
+                junk = 0
+                continue
             buf.append("\t")
             i += 1
             cur_bytes += 1
@@ -385,7 +711,16 @@ def extract_document(path: str, junk_limit: int = 16,
                     entry["runs"] = merged
             block_styles.append(entry)
         styles.append(block_styles)
-    return blocks, styles
+    grid = _detect_grid_table(data, runs, blocks, _table_counters(data))
+    return blocks, styles, grid
+
+
+def extract_document(path: str, junk_limit: int = 16,
+                     min_block_chars: int = 10):
+    """Backward-compatible wrapper: returns (blocks, styles)."""
+    blocks, _styles, _grid = extract_document_ex(path, junk_limit,
+                                                 min_block_chars)
+    return blocks, _styles
 
 
 def extract_intermediate(path: str, junk_limit: int = 16,

@@ -57,6 +57,13 @@ class RenderOptions:
     urdu_font: str = "jameel"       # jameel | noto
     exact_lines: bool = True        # keep original line breaks (no re-flow)
     doc_title: str | None = None
+    # Text-area width the .inp file itself declares (page minus its own
+    # margins, e.g. 184.6mm for A4 with 12.7mm margins). Round 15d: real
+    # word gaps are wider than the fused rendering that was tuned to the
+    # default 18mm margin, so a stored line that InPage itself fit on one
+    # line must not wrap in our 174mm area — the wrap decision uses this
+    # width, the drawn line still fits our margin via gap compression.
+    file_usable_mm: float | None = None
 
 
 @dataclass
@@ -257,17 +264,39 @@ class NastaliqPDF(FPDF):
                    x_left: float | None = None) -> None:
         """multi_cell replacement that routes every visual line through
         cell() — so synthetic bold and future run-level styling apply to
-        wrapped text too. Line breaking is fpdf2's own (split_only)."""
-        try:
-            lines = self.multi_cell(w, h, text, align=align, split_only=True)
-        except Exception:
-            lines = [text]
+        wrapped text too.
+
+        SPACE FIX (round 15d): shaped cells render the font's Arabic
+        space at ~zero width, so a plain cell() glues single-spaced
+        words together (the user's "haroof alag alag / glitches"). Any
+        line that contains a space is therefore broken with the
+        space-aware wrapper and drawn word by word via _cell_spaced —
+        every typed space keeps its full width. Lines without spaces
+        keep fpdf2's own breaking."""
+        if " " in text.strip():
+            try:
+                lines = self._spaced_wrap(w, text)
+            except Exception:
+                lines = [text]
+        else:
+            try:
+                lines = self.multi_cell(w, h, text, align=align, split_only=True)
+            except Exception:
+                lines = [text]
+            # ROUND 15d: a spaceless "line" is a single Arabic word —
+            # the generic line breaker splits it per-glyph when a big
+            # word exceeds the width, which destroys Nastaliq joining
+            # and stacks letters down the cell (seen with a 60pt cell).
+            # InPage lets a too-wide word overflow; so do we.
+            if len(lines) > 1 and " " not in text.strip():
+                lines = [text]
         if not lines:
             lines = [""]
         y = self.get_y()
         for ln in lines:
             self.set_x(self.l_margin if x_left is None else x_left)
-            self.cell(w, h, ln, align=align)
+            if not self._cell_spaced(w, h, ln, align, advance=False):
+                self.cell(w, h, ln, align=align)
             y += h
             self.set_y(y)
 
@@ -564,6 +593,12 @@ def render_pdf(doc: Document, out_path: str, opts: RenderOptions | None = None) 
                 return usable + 1
             return base + extra * sp_w
         pieces = text.split("\n") if not opts.exact_lines else [text]
+        # ROUND 15d: wrap decision honors the file's own text area —
+        # InPage fit these lines at 184.6mm; our 174mm area receives
+        # them with (slightly) compressed gaps instead of a re-flow.
+        wrap_w = usable
+        if opts.file_usable_mm:
+            wrap_w = max(usable, opts.file_usable_mm)
         for piece in pieces:
             if para.segments:
                 if pdf.get_y() + line_h > pdf.h - pdf.b_margin:
@@ -574,15 +609,22 @@ def render_pdf(doc: Document, out_path: str, opts: RenderOptions | None = None) 
                     continue
                 # segments did not fit one line — fall through to the
                 # dominant-style paths below (never re-flow styled words)
-            if "  " in piece and pdf._spaced_fits(usable, piece):
-                # Typed space-run line (MCQ options etc.): shaped cells
-                # swallow space runs, so render it with manual word
-                # placement — every typed space keeps its full width.
-                if pdf.get_y() + line_h > pdf.h - pdf.b_margin:
-                    pdf.add_page()
-                pdf.set_x(pdf.l_margin)
-                pdf._cell_spaced(usable, line_h, piece, align)
-                pdf.set_x(pdf.l_margin)
+            if " " in piece.strip():
+                # SPACE FIX (round 15d): typed spaces — single or runs —
+                # are swallowed by shaped cells (~zero-width Arabic
+                # space), so ANY line containing a space is drawn with
+                # manual word placement: every typed space keeps its
+                # full width (MCQ runs unchanged, single-spaced prose
+                # no longer glues words together). Wrapping stays
+                # space-aware; a line that fits is never re-flowed.
+                for ln in pdf._spaced_wrap(wrap_w, piece):
+                    if pdf.get_y() + line_h > pdf.h - pdf.b_margin:
+                        pdf.add_page()
+                    pdf.set_x(pdf.l_margin)
+                    if not pdf._cell_spaced(usable, line_h, ln, align):
+                        pdf.set_x(pdf.l_margin)
+                        pdf._multiline(usable, line_h, ln, align=align)
+                    pdf.set_x(pdf.l_margin)
             elif opts.exact_lines and _est_w(piece) <= usable:
                 if pdf.get_y() + line_h > pdf.h - pdf.b_margin:
                     pdf.add_page()
@@ -694,7 +736,8 @@ def render_table_pdf(doc: Document, table: dict, out_path: str,
                      opts: RenderOptions) -> None:
     """Render a detected InPage table document as a bordered RTL table."""
     pdf = NastaliqPDF(opts)
-    body = _dominant_size(doc.paragraphs) or opts.body_size_pt
+    body = (table.get("body_size") or _dominant_size(doc.paragraphs)
+            or opts.body_size_pt)
     body = min(max(body * opts.scale, 7.0), 20.0)
 
     usable = pdf.w - 2 * opts.margin_mm
@@ -723,45 +766,81 @@ def render_table_pdf(doc: Document, table: dict, out_path: str,
             # ROUND 9 FIX: title block was force-centered; the originals are
             # right-aligned InPage paragraphs (leading spaces are invisible
             # in RTL right-aligned lines), so render like the flow layout.
-            if "  " in t and pdf._spaced_fits(uw, t):
+            # ROUND 15d: any typed space keeps its width (see _multiline).
+            for ln in pdf._spaced_wrap(uw, t):
                 pdf.set_x(pdf.l_margin)
-                pdf._cell_spaced(uw, th, t, "R")
-            else:
-                pdf._multiline(uw, th, t, align="R")
+                if not pdf._cell_spaced(uw, th, ln, "R"):
+                    pdf._multiline(uw, th, ln, align="R")
             first = False
         pdf.ln(4)
 
-    widths = _column_widths(table["rows"], table["header"], table["cols"], usable)
+    geom = table.get("geom")
+    if geom:
+        # Grid-table documents store their real page setup: the table
+        # fills the text area margin-to-margin (user-verified: the
+        # original has NO gap beside the table). Apply the document's
+        # own margins and the table's recorded width; equal columns.
+        pdf.l_margin = geom["x0_mm"]
+        pdf.r_margin = pdf.w - (geom["x0_mm"] + geom["width_mm"])
+        usable = geom["width_mm"]
+        widths = [usable / table["cols"]] * table["cols"]
+    elif table.get("uniform"):
+        # grid tables carry no geometry in the file (InPage computes the
+        # layout): equal columns, row heights from content
+        widths = [usable / table["cols"]] * table["cols"]
+    else:
+        widths = _column_widths(table["rows"], table["header"],
+                                table["cols"], usable)
     # RTL: column 0 (serial) is the RIGHTMOST column
     xs = []
-    x = pdf.w - opts.margin_mm
+    x = pdf.w - pdf.r_margin      # geom path already moved the margins
     for w in widths:
         xs.append(x - w)
         x -= w
 
-    def draw_row(cells, bold=False, fill=False):
-        # measure needed height
-        n_lines = 1
+    # grid tables carry a font size per cell (InPage stores it in the
+    # cell's own run style); serial tables keep the uniform body size
+    cell_sizes = table.get("cell_sizes")
+    cell_bolds = table.get("cell_bolds")
+
+    def cell_font(r, c, row_bold=False):
+        sz = None
+        if cell_sizes and r is not None and r < len(cell_sizes) \
+                and c < len(cell_sizes[r]):
+            sz = cell_sizes[r][c]
+        b = row_bold
+        if cell_bolds and r is not None and r < len(cell_bolds) \
+                and c < len(cell_bolds[r]):
+            b = b or bool(cell_bolds[r][c])
+        return (sz or body), b
+
+    def draw_row(cells, r=None, bold=False, fill=False):
+        # measure needed height with each cell's own font size
+        meas = []
+        row_h = 2 * pad_v
         for c in range(table["cols"]):
             txt = cells[c] if c < len(cells) else ""
-            if not txt:
-                continue
-            pdf.set_font("Nastaliq", "B" if bold else "", body)
-            cw = widths[c] - 2 * pad_h
-            if "  " in txt:
-                n_lines = max(n_lines, len(pdf._spaced_wrap(cw, txt)))
-                continue
-            lines = pdf.multi_cell(cw, line_h, txt,
-                                   align="R", split_only=True)
-            n_lines = max(n_lines, len(lines) if lines else 1)
-        row_h = n_lines * line_h + 2 * pad_v
+            sz, b = cell_font(r, c, bold)
+            lh = sz * opts.line_spacing * 0.42 * pdf.line_factor
+            n_lines = 1
+            if txt:
+                pdf.set_font("Nastaliq", "B" if b else "", sz)
+                cw = max(widths[c] - 2 * pad_h, 6.0)
+                if " " in txt.strip():
+                    n_lines = len(pdf._spaced_wrap(cw, txt))
+                else:
+                    # spaceless cell text = one unsplittable word
+                    # (per-glyph stacking would break Nastaliq joining)
+                    n_lines = 1
+            meas.append((txt, sz, b, lh))
+            row_h = max(row_h, n_lines * lh + 2 * pad_v)
         if pdf.get_y() + row_h > pdf.h - opts.margin_mm - 6:
             pdf.add_page()
             if table["header"] and not bold:      # repeat header after break
-                draw_row(table["header"], bold=True, fill=True)
+                draw_row(table["header"], None, bold=True, fill=True)
         y = pdf.get_y()
         for c in range(table["cols"]):
-            txt = cells[c] if c < len(cells) else ""
+            txt, sz, b, lh = meas[c]
             if fill:
                 pdf.set_fill_color(232, 236, 244)
                 pdf.rect(xs[c], y, widths[c], row_h, style="F")
@@ -769,32 +848,73 @@ def render_table_pdf(doc: Document, table: dict, out_path: str,
             pdf.set_line_width(0.25)
             pdf.rect(xs[c], y, widths[c], row_h)
             if txt:
-                pdf.set_xy(xs[c] + pad_h, y + pad_v)
-                pdf.set_font("Nastaliq", "B" if bold else "", body)
+                pdf.set_font("Nastaliq", "B" if b else "", sz)
                 pdf.set_text_color(20, 20, 20)
                 align = "C" if (bold or _SERIAL_RE.match(txt)) else "R"
-                cw = widths[c] - 2 * pad_h
-                if "  " in txt:
-                    y_cur = pdf.get_y()
-                    for ln in pdf._spaced_wrap(cw, txt):
-                        pdf.set_xy(xs[c] + pad_h, y_cur)
-                        if not pdf._cell_spaced(cw, line_h, ln, align):
+                cw = max(widths[c] - 2 * pad_h, 6.0)
+                # a cell may hold several stored lines (multi-line cell);
+                # ROUND 15d: ANY typed space (single or run) keeps its
+                # width via the spaced renderer, which wraps into as many
+                # lines as the cell width needs
+                y_cur = y + pad_v
+                for seg in txt.split("\n"):
+                    if not seg:
+                        y_cur += lh
+                        continue
+                    if " " in seg.strip():
+                        for ln in pdf._spaced_wrap(cw, seg):
                             pdf.set_xy(xs[c] + pad_h, y_cur)
-                            pdf._multiline(cw, line_h, ln, align=align,
-                                           x_left=xs[c] + pad_h)
-                        y_cur += line_h
-                else:
-                    pdf._multiline(cw, line_h, txt, align=align,
-                                   x_left=xs[c] + pad_h)
+                            if not pdf._cell_spaced(cw, lh, ln, align):
+                                pdf.set_xy(xs[c] + pad_h, y_cur)
+                                pdf._multiline(cw, lh, ln, align=align,
+                                               x_left=xs[c] + pad_h)
+                            y_cur += lh
+                    else:
+                        pdf.set_xy(xs[c] + pad_h, y_cur)
+                        pdf._multiline(cw, lh, seg, align=align,
+                                       x_left=xs[c] + pad_h)
+                        y_cur += lh
         pdf.set_y(y + row_h)
 
     start_y = pdf.get_y()
     if pdf.page == 0 or pdf.get_y() < opts.margin_mm + 1:
         pdf.add_page()
+        if geom:
+            pdf.set_y(geom["y0_mm"])     # the original table starts at
+                                         # the document's top margin
     if table["header"]:
-        draw_row(table["header"], bold=True, fill=True)
-    for row in table["rows"]:
-        draw_row(row)
+        draw_row(table["header"], None, bold=True, fill=True)
+    for ri, row in enumerate(table["rows"]):
+        draw_row(row, r=ri)
+    # flow paragraphs from story blocks that follow the table
+    post = table.get("post") or []
+    if post:
+        if pdf.page == 0:
+            pdf.add_page()
+        pdf.ln(4)
+        uw = pdf.w - pdf.l_margin - pdf.r_margin
+        for p in post:
+            t = _clean(p.text, opts.strip_kashida)
+            if not t:
+                pdf.ln(2)
+                continue
+            stl = ("B" if p.bold else "") + ("I" if p.italic else "")
+            sz = min(max((p.size_pt or body) * opts.scale, 7.0), 26.0)
+            pdf.set_font("Nastaliq", stl, sz)
+            pdf.set_text_color(20, 20, 20)
+            th = sz * opts.line_spacing * 0.42 * pdf.line_factor
+            if pdf.get_y() + th > pdf.h - opts.margin_mm - 6:
+                pdf.add_page()
+            # ROUND 15d: any typed space keeps its width
+            if " " in t.strip():
+                for ln in pdf._spaced_wrap(uw, t):
+                    if pdf.get_y() + th > pdf.h - opts.margin_mm - 6:
+                        pdf.add_page()
+                    pdf.set_x(pdf.l_margin)
+                    if not pdf._cell_spaced(uw, th, ln, "R"):
+                        pdf._multiline(uw, th, ln, align="R")
+            else:
+                pdf._multiline(uw, th, t, align="R")
     if pdf.page == 0:
         pdf.add_page()
     pdf.output(out_path)
